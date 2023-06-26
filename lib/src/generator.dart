@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:typed_data' show Uint8List;
 import 'package:hex/hex.dart';
 import 'package:image/image.dart';
+import 'package:image/image.dart' as img;
 import 'package:gbk_codec/gbk_codec.dart';
 import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'enums.dart';
@@ -58,8 +59,7 @@ class Generator {
       if (styles.fontType != null) {
         charsPerLine = _getMaxCharsPerLine(styles.fontType);
       } else {
-        charsPerLine =
-            _maxCharsPerLine ?? _getMaxCharsPerLine(_styles.fontType);
+        charsPerLine = _maxCharsPerLine ?? _getMaxCharsPerLine(_styles.fontType);
       }
     }
     return charsPerLine;
@@ -67,12 +67,8 @@ class Generator {
 
   Uint8List _encode(String text, {bool isKanji = false}) {
     // replace some non-ascii characters
-    text = text
-        .replaceAll("’", "'")
-        .replaceAll("´", "'")
-        .replaceAll("»", '"')
-        .replaceAll(" ", ' ')
-        .replaceAll("•", '.');
+    text =
+        text.replaceAll("’", "'").replaceAll("´", "'").replaceAll("»", '"').replaceAll(" ", ' ').replaceAll("•", '.');
     if (!isKanji) {
       return latin1.encode(text);
     } else {
@@ -119,8 +115,7 @@ class Generator {
       throw Exception('Can only output 1-4 bytes');
     }
     if (value < 0 || value > maxInput) {
-      throw Exception(
-          'Number is too large. Can only output up to $maxInput in $bytesNb bytes');
+      throw Exception('Number is too large. Can only output up to $maxInput in $bytesNb bytes');
     }
 
     final List<int> res = <int>[];
@@ -145,16 +140,16 @@ class Generator {
 
     // Create a black bottom layer
     final biggerImage = copyResize(image, width: widthPx, height: heightPx);
-    fill(biggerImage, 0);
+    fill(biggerImage, color: img.ColorRgb8(0, 0, 0));
     // Insert source image into bigger one
-    drawImage(biggerImage, image, dstX: 0, dstY: 0);
+    compositeImage(biggerImage, image, dstX: 0, dstY: 0);
 
     int left = 0;
     final List<List<int>> blobs = [];
 
     while (left < widthPx) {
-      final Image slice = copyCrop(biggerImage, left, 0, lineHeight, heightPx);
-      final Uint8List bytes = slice.getBytes(format: Format.luminance);
+      final Image slice = copyCrop(biggerImage, x: left, y: 0, width: lineHeight, height: heightPx);
+      final Uint8List bytes = slice.getBytes();
       blobs.add(bytes);
       left += lineHeight;
     }
@@ -173,7 +168,7 @@ class Generator {
 
     // R/G/B channels are same -> keep only one channel
     final List<int> oneChannelBytes = [];
-    final List<int> buffer = image.getBytes(format: Format.rgba);
+    final List<int> buffer = image.getBytes();
     for (int i = 0; i < buffer.length; i += 4) {
       oneChannelBytes.add(buffer[i]);
     }
@@ -214,8 +209,7 @@ class Generator {
 
   /// Replaces a single bit in a 32-bit unsigned integer.
   int _transformUint32Bool(int uint32, int shift, bool newValue) {
-    return ((0xFFFFFFFF ^ (0x1 << shift)) & uint32) |
-        ((newValue ? 1 : 0) << shift);
+    return ((0xFFFFFFFF ^ (0x1 << shift)) & uint32) | ((newValue ? 1 : 0) << shift);
   }
   // ************************ (end) Internal helpers  ************************
 
@@ -260,9 +254,8 @@ class Generator {
   List<int> setStyles(PosStyles styles, {bool isKanji = false}) {
     List<int> bytes = [];
     if (styles.align != _styles.align) {
-      bytes += latin1.encode(styles.align == PosAlign.left
-          ? cAlignLeft
-          : (styles.align == PosAlign.center ? cAlignCenter : cAlignRight));
+      bytes += latin1.encode(
+          styles.align == PosAlign.left ? cAlignLeft : (styles.align == PosAlign.center ? cAlignCenter : cAlignRight));
       _styles = _styles.copyWith(align: styles.align);
     }
 
@@ -279,16 +272,13 @@ class Generator {
       _styles = _styles.copyWith(reverse: styles.reverse);
     }
     if (styles.underline != _styles.underline) {
-      bytes +=
-          styles.underline ? cUnderline1dot.codeUnits : cUnderlineOff.codeUnits;
+      bytes += styles.underline ? cUnderline1dot.codeUnits : cUnderlineOff.codeUnits;
       _styles = _styles.copyWith(underline: styles.underline);
     }
 
     // Set font
     if (styles.fontType != null && styles.fontType != _styles.fontType) {
-      bytes += styles.fontType == PosFontType.fontB
-          ? cFontB.codeUnits
-          : cFontA.codeUnits;
+      bytes += styles.fontType == PosFontType.fontB ? cFontB.codeUnits : cFontA.codeUnits;
       _styles = _styles.copyWith(fontType: styles.fontType);
     } else if (_font != null && _font != _styles.fontType) {
       bytes += _font == PosFontType.fontB ? cFontB.codeUnits : cFontA.codeUnits;
@@ -296,11 +286,9 @@ class Generator {
     }
 
     // Characters size
-    if (styles.height.value != _styles.height.value ||
-        styles.width.value != _styles.width.value) {
+    if (styles.height.value != _styles.height.value || styles.width.value != _styles.width.value) {
       bytes += Uint8List.fromList(
-        List.from(cSizeGSn.codeUnits)
-          ..add(PosTextSize.decSize(styles.height, styles.width)),
+        List.from(cSizeGSn.codeUnits)..add(PosTextSize.decSize(styles.height, styles.width)),
       );
       _styles = _styles.copyWith(height: styles.height, width: styles.width);
     }
@@ -315,15 +303,12 @@ class Generator {
     // Set local code table
     if (styles.codeTable != null) {
       bytes += Uint8List.fromList(
-        List.from(cCodeTable.codeUnits)
-          ..add(_profile.getCodePageId(styles.codeTable)),
+        List.from(cCodeTable.codeUnits)..add(_profile.getCodePageId(styles.codeTable)),
       );
-      _styles =
-          _styles.copyWith(align: styles.align, codeTable: styles.codeTable);
+      _styles = _styles.copyWith(align: styles.align, codeTable: styles.codeTable);
     } else if (_codeTable != null) {
       bytes += Uint8List.fromList(
-        List.from(cCodeTable.codeUnits)
-          ..add(_profile.getCodePageId(_codeTable)),
+        List.from(cCodeTable.codeUnits)..add(_profile.getCodePageId(_codeTable)),
       );
       _styles = _styles.copyWith(align: styles.align, codeTable: _codeTable);
     }
@@ -426,8 +411,7 @@ class Generator {
   /// Beeps [n] times
   ///
   /// Beep [duration] could be between 50 and 450 ms.
-  List<int> beep(
-      {int n = 3, PosBeepDuration duration = PosBeepDuration.beep450ms}) {
+  List<int> beep({int n = 3, PosBeepDuration duration = PosBeepDuration.beep450ms}) {
     List<int> bytes = [];
     if (n <= 0) {
       return [];
@@ -469,36 +453,27 @@ class Generator {
     List<PosColumn> nextRow = <PosColumn>[];
 
     for (int i = 0; i < cols.length; ++i) {
-      int colInd =
-          cols.sublist(0, i).fold(0, (int sum, col) => sum + col.width);
+      int colInd = cols.sublist(0, i).fold(0, (int sum, col) => sum + col.width);
       double charWidth = _getCharWidth(cols[i].styles);
       double fromPos = _colIndToPosition(colInd);
-      final double toPos =
-          _colIndToPosition(colInd + cols[i].width) - spaceBetweenRows;
+      final double toPos = _colIndToPosition(colInd + cols[i].width) - spaceBetweenRows;
       int maxCharactersNb = ((toPos - fromPos) / charWidth).floor();
 
       if (!cols[i].containsChinese) {
         // CASE 1: containsChinese = false
-        Uint8List encodedToPrint = cols[i].textEncoded != null
-            ? cols[i].textEncoded!
-            : _encode(cols[i].text);
+        Uint8List encodedToPrint = cols[i].textEncoded != null ? cols[i].textEncoded! : _encode(cols[i].text);
 
         // If the col's content is too long, split it to the next row
         int realCharactersNb = encodedToPrint.length;
         if (realCharactersNb > maxCharactersNb) {
           // Print max possible and split to the next row
-          Uint8List encodedToPrintNextRow =
-              encodedToPrint.sublist(maxCharactersNb);
+          Uint8List encodedToPrintNextRow = encodedToPrint.sublist(maxCharactersNb);
           encodedToPrint = encodedToPrint.sublist(0, maxCharactersNb);
           isNextRow = true;
-          nextRow.add(PosColumn(
-              textEncoded: encodedToPrintNextRow,
-              width: cols[i].width,
-              styles: cols[i].styles));
+          nextRow.add(PosColumn(textEncoded: encodedToPrintNextRow, width: cols[i].width, styles: cols[i].styles));
         } else {
           // Insert an empty col
-          nextRow.add(PosColumn(
-              text: '', width: cols[i].width, styles: cols[i].styles));
+          nextRow.add(PosColumn(text: '', width: cols[i].width, styles: cols[i].styles));
         }
         // end rows splitting
         bytes += _text(
@@ -525,15 +500,11 @@ class Generator {
 
         if (toPrintNextRow.isNotEmpty) {
           isNextRow = true;
-          nextRow.add(PosColumn(
-              text: toPrintNextRow,
-              containsChinese: true,
-              width: cols[i].width,
-              styles: cols[i].styles));
+          nextRow.add(
+              PosColumn(text: toPrintNextRow, containsChinese: true, width: cols[i].width, styles: cols[i].styles));
         } else {
           // Insert an empty col
-          nextRow.add(PosColumn(
-              text: '', width: cols[i].width, styles: cols[i].styles));
+          nextRow.add(PosColumn(text: '', width: cols[i].width, styles: cols[i].styles));
         }
 
         // Print current row
@@ -577,8 +548,8 @@ class Generator {
     const bool highDensityVertical = true;
 
     invert(image);
-    flip(image, Flip.horizontal);
-    final Image imageRotated = copyRotate(image, 270);
+    flip(image, direction: img.FlipDirection.horizontal);
+    final Image imageRotated = copyRotate(image, angle: 270);
 
     const int lineHeight = highDensityVertical ? 3 : 1;
     final List<List<int>> blobs = _toColumnFormat(imageRotated, lineHeight * 8);
@@ -592,8 +563,7 @@ class Generator {
     }
 
     final int heightPx = imageRotated.height;
-    const int densityByte =
-        (highDensityHorizontal ? 1 : 0) + (highDensityVertical ? 32 : 0);
+    const int densityByte = (highDensityHorizontal ? 1 : 0) + (highDensityVertical ? 32 : 0);
 
     final List<int> header = List.from(cBitImg.codeUnits);
     header.add(densityByte);
@@ -632,8 +602,7 @@ class Generator {
 
     if (imageFn == PosImageFn.bitImageRaster) {
       // GS v 0
-      final int densityByte =
-          (highDensityVertical ? 0 : 1) + (highDensityHorizontal ? 0 : 2);
+      final int densityByte = (highDensityVertical ? 0 : 1) + (highDensityHorizontal ? 0 : 2);
 
       final List<int> header = List.from(cRasterImg2.codeUnits);
       header.add(densityByte); // m
@@ -770,15 +739,13 @@ class Generator {
   }) {
     List<int> bytes = [];
     if (colInd != null) {
-      double charWidth =
-          _getCharWidth(styles, maxCharsPerLine: maxCharsPerLine);
+      double charWidth = _getCharWidth(styles, maxCharsPerLine: maxCharsPerLine);
       double fromPos = _colIndToPosition(colInd);
 
       // Align
       if (colWidth != 12) {
         // Update fromPos
-        final double toPos =
-            _colIndToPosition(colInd + colWidth) - spaceBetweenRows;
+        final double toPos = _colIndToPosition(colInd + colWidth) - spaceBetweenRows;
         final double textLen = textBytes.length * charWidth;
 
         if (styles.align == PosAlign.right) {
