@@ -690,6 +690,23 @@ class Generator {
     return bytes;
   }
 
+  /// Print a PDF417
+  List<int> pdf417code(String text,
+      {PosAlign align = PosAlign.center,
+      PDF417Size sizeW = PDF417Size.size2,
+      PDF417Size sizeH = PDF417Size.size2,
+      PDF417SizeCol sizeCol = PDF417SizeCol.size0,
+      PDF417SizeRow sizeRow = PDF417SizeRow.size0,
+      PDF417Correction level = PDF417Correction.L}) {
+    List<int> bytes = [];
+    // Set alignment
+    bytes += setStyles(PosStyles().copyWith(align: align));
+    PDF417Code pdf417 =
+        PDF417Code(text, {sizeW: sizeW, sizeH: sizeH, sizeCol: sizeCol, sizeRow: sizeRow, level: level});
+    bytes += pdf417.bytes;
+    return bytes;
+  }
+
   /// Open cash drawer
   List<int> drawer({PosDrawer pin = PosDrawer.pin2}) {
     List<int> bytes = [];
