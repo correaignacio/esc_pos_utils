@@ -110,7 +110,10 @@ class PDF417Code {
     // Stores symbol data in the PDF417 symbol storage area.
     List<int> textBytes = latin1.encode(text);
     // pL pH cn fn n (fn=80)
-    bytes += cPDF417Header.codeUnits + [textBytes.length + 3, 0x00, 0x30, 0x50, 0x30];
+    int dataL = textBytes.length + 3;
+    int pL = dataL % 256;
+    int pH = ((dataL ~/ 256) % 256);
+    bytes += cPDF417Header.codeUnits + [pL, pH, 0x30, 0x50, 0x30];
     bytes += textBytes;
 
     // Prints the PDF417 symbol data in the symbol storage area

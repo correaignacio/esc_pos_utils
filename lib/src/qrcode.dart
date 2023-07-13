@@ -45,6 +45,10 @@ class QRCode {
   List<int> bytes = <int>[];
 
   QRCode(String text, QRSize size, QRCorrection level) {
+    // FN 65. Select the QR Code model.
+    // pL pH cn fn n1 n2 (n1=49,50 [49 > Model 1, 50 > Model 2],  n2 = 0)
+    bytes += cQrHeader.codeUnits + [0x04, 0x00, 0x31, 0x41, 0x32, 0x00];
+
     // FN 167. QR Code: Set the size of module
     // pL pH cn fn n
     bytes += cQrHeader.codeUnits + [0x03, 0x00, 0x31, 0x43] + [size.value];
@@ -56,7 +60,10 @@ class QRCode {
     // FN 180. QR Code: Store the data in the symbol storage area
     List<int> textBytes = latin1.encode(text);
     // pL pH cn fn m
-    bytes += cQrHeader.codeUnits + [textBytes.length + 3, 0x00, 0x31, 0x50, 0x30];
+    int dataL = textBytes.length + 3;
+    int pL = dataL % 256;
+    int pH = ((dataL ~/ 256) % 256);
+    bytes += cQrHeader.codeUnits + [pL, pH, 0x31, 0x50, 0x30];
     bytes += textBytes;
 
     // FN 182. QR Code: Transmit the size information of the symbol data in the symbol storage area
